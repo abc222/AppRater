@@ -2,20 +2,17 @@ package org.codechimp.apprater;
 
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
-import android.app.AlertDialog;
-import android.app.AlertDialog.Builder;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.util.Log;
-import android.view.Gravity;
-import android.widget.Button;
-import android.widget.LinearLayout;
 
 public class AppRater {
+
+    public static final String TAG = "AppRater";
+
     // Preference Constants
     private final static String PREF_NAME = "apprater";
     private final static String PREF_LAUNCH_COUNT = "launch_count";
@@ -31,14 +28,17 @@ public class AppRater {
     private static int LAUNCHES_UNTIL_PROMPT_FOR_REMIND_LATER = 7;
     private static boolean isDark;
     private static boolean themeSet;
-    private static boolean hideNoButton;
     private static boolean isVersionNameCheckEnabled;
     private static boolean isVersionCodeCheckEnabled;
     private static boolean isCancelable = true;
 
-    private static String packageName;
+    /**
+     * 策略调度 总展示次数 展示时间间隔
+     */
+    private static int TOTAL_SHOW_NUM = 10;
+    private static long SHOW_TIME_INTERVAL = 24 * 60 * 60 * 1000;
 
-    private static Market market = new GoogleMarket();
+    private static GoogleMarket googleMarket = new GoogleMarket();
 
     /**
      * Decides if the version name check is active or not
@@ -77,15 +77,6 @@ public class AppRater {
     public static void setNumLaunchesForRemindLater(int launchesUntilPrompt) {
 
         LAUNCHES_UNTIL_PROMPT_FOR_REMIND_LATER = launchesUntilPrompt;
-    }
-
-    /**
-     * decides if No thanks button appear in dialog or not
-     *
-     * @param isNoButtonVisible
-     */
-    public static void setDontRemindButtonVisible(boolean isNoButtonVisible) {
-        AppRater.hideNoButton = isNoButtonVisible;
     }
 
     /**
@@ -175,7 +166,10 @@ public class AppRater {
         }
         // Wait for at least the number of launches or the number of days used
         // until prompt
-        if (launch_count >= launches || (System.currentTimeMillis() >= date_firstLaunch + (days * 24 * 60 * 60 * 1000))) {
+//        if (launch_count >= launches || (System.currentTimeMillis() >= date_firstLaunch + (days * 24 * 60 * 60 * 1000))) {
+//            showRateAlertDialog(context, editor);
+//        }
+        if (launch_count >= launches || (System.currentTimeMillis() >= date_firstLaunch + SHOW_TIME_INTERVAL)) {
             showRateAlertDialog(context, editor);
         }
         commitOrApply(editor);
@@ -198,33 +192,16 @@ public class AppRater {
      */
     public static void rateNow(final Context context) {
         try {
-            context.startActivity(new Intent(Intent.ACTION_VIEW, market.getMarketURI(context)));
+            context.startActivity(new Intent(Intent.ACTION_VIEW, googleMarket.getMarketURI(context)));
         } catch (ActivityNotFoundException activityNotFoundException1) {
-            Log.e(AppRater.class.getSimpleName(), "Market Intent not found");
+            Log.e(AppRater.class.getSimpleName(), "GoogleMarket Intent not found");
         }
     }
 
     public static void setPackageName(String packageName) {
-        AppRater.market.overridePackageName(packageName);
+        AppRater.googleMarket.overridePackageName(packageName);
     }
 
-    /**
-     * Set an alternate Market, defaults to Google Play
-     *
-     * @param market
-     */
-    public static void setMarket(Market market) {
-        AppRater.market = market;
-    }
-
-    /**
-     * Get the currently set Market
-     *
-     * @return market
-     */
-    public static Market getMarket() {
-        return market;
-    }
 
     /**
      * Sets dialog theme to dark
@@ -249,94 +226,39 @@ public class AppRater {
      */
     @SuppressLint("NewApi")
     private static void showRateAlertDialog(final Context context, final SharedPreferences.Editor editor) {
-        Builder builder;
-        if (Build.VERSION.SDK_INT >= 11 && themeSet) {
-            builder = new AlertDialog.Builder(context, (isDark ? AlertDialog.THEME_HOLO_DARK : AlertDialog.THEME_HOLO_LIGHT));
-        } else {
-            builder = new AlertDialog.Builder(context);
-        }
         ApplicationRatingInfo ratingInfo = ApplicationRatingInfo.createApplicationInfo(context);
-        builder.setTitle(String.format(context.getString(R.string.apprater_dialog_title), ratingInfo.getApplicationName()));
 
-        builder.setMessage(context.getString(R.string.apprater_rate_message));
+        final RatingDialog ratingDialog = new RatingDialog(context);
 
-        builder.setCancelable(isCancelable);
-
-        builder.setPositiveButton(context.getString(R.string.apprater_rate),
-                new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int id) {
-                        rateNow(context);
-                        if (editor != null) {
-                            editor.putBoolean(PREF_DONT_SHOW_AGAIN, true);
-                            commitOrApply(editor);
-                        }
-                        dialog.dismiss();
-                    }
-                });
-
-        builder.setNeutralButton(context.getString(R.string.apprater_later),
-                new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int id) {
-                        if (editor != null) {
-                            Long date_firstLaunch = System.currentTimeMillis();
-                            editor.putLong(PREF_FIRST_LAUNCHED, date_firstLaunch);
-                            editor.putLong(PREF_LAUNCH_COUNT, 0);
-                            editor.putBoolean(PREF_REMIND_LATER, true);
-                            editor.putBoolean(PREF_DONT_SHOW_AGAIN, false);
-                            commitOrApply(editor);
-                        }
-                        dialog.dismiss();
-                    }
-                });
-        if (!hideNoButton) {
-            builder.setNegativeButton(context.getString(R.string.apprater_no_thanks),
-                    new DialogInterface.OnClickListener() {
-                        public void onClick(DialogInterface dialog, int id) {
-                            if (editor != null) {
-                                editor.putBoolean(PREF_DONT_SHOW_AGAIN, true);
-                                editor.putBoolean(PREF_REMIND_LATER, false);
-                                long date_firstLaunch = System.currentTimeMillis();
-                                editor.putLong(PREF_FIRST_LAUNCHED, date_firstLaunch);
-                                editor.putLong(PREF_LAUNCH_COUNT, 0);
-                                commitOrApply(editor);
-                            }
-                            dialog.dismiss();
-                        }
-                    });
-        }
-        final AlertDialog alertDialog = builder.create();
-        alertDialog.setOnShowListener(new DialogInterface.OnShowListener() {
+        ratingDialog.setOnDialogClickListener(new RatingDialog.OnDialogClickListener() {
             @Override
-            public void onShow(DialogInterface dialog) {
-                try {
-                    final Button buttonPositive = alertDialog.getButton(AlertDialog.BUTTON_POSITIVE);
-
-                    if (buttonPositive == null) {
-                        return;
+            public void onEncourageButtonClickListener() {
+                Log.d(TAG, "stars: " + ratingDialog.stars);
+                if (ratingDialog.stars < 3) {
+                    if (editor != null) {
+//                      editor.putBoolean(PREF_DONT_SHOW_AGAIN, true);
+//                      editor.putBoolean(PREF_REMIND_LATER, false);
+                        editor.putBoolean(PREF_DONT_SHOW_AGAIN, false);
+                        editor.putBoolean(PREF_REMIND_LATER, true);
+                        long date_firstLaunch = System.currentTimeMillis();
+                        editor.putLong(PREF_FIRST_LAUNCHED, date_firstLaunch);
+                        editor.putLong(PREF_LAUNCH_COUNT, 0);
+                        commitOrApply(editor);
                     }
-
-                    LinearLayout linearLayout = (LinearLayout)buttonPositive.getParent();
-                    if (linearLayout == null) {
-                        return;
+                    ratingDialog.dismiss();
+                } else {
+                    rateNow(context);
+                    if (editor != null) {
+                        editor.putBoolean(PREF_DONT_SHOW_AGAIN, true);
+                        commitOrApply(editor);
                     }
-
-                    // Check positive button not fits in window
-                    boolean shouldUseVerticalLayout = false;
-                    if (buttonPositive.getLeft() + buttonPositive.getWidth() > linearLayout.getWidth()) {
-                        shouldUseVerticalLayout = true;
-                    }
-
-                    // Change layout orientation to vertical
-                    if (shouldUseVerticalLayout ) {
-                        linearLayout.setOrientation(LinearLayout.VERTICAL);
-                        linearLayout.setGravity(Gravity.END);
-                    }
-                } catch (Exception ignored) {
+                    ratingDialog.dismiss();
                 }
             }
         });
-        alertDialog.show();
+        ratingDialog.show();
     }
+
 
     @SuppressLint("NewApi")
     private static void commitOrApply(SharedPreferences.Editor editor) {

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--实现的效果：
+    按下按钮，背景蓝色
+    没有按下按钮，背景白色-->
+    <!-- 表示被选中后的按钮样式-->
+    <item android:state_pressed="true">
+        <shape>
+            <!-- 表示圆角弧度-->
+            <corners android:radius="6dp"/>
+            <!-- 表示内部填充色-->
+            <solid android:color="#bb1295DA"/>
+        </shape>
+    </item>
+
+    <!-- 表示没被选中后的按钮样式-->
+    <item android:state_pressed="false">
+        <shape>
+            <corners android:radius="6dp"/>
+            <solid android:color="#D7D7D7"/>
+        </shape>
+    </item>
+
+</selector>

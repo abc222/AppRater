@@ -13,38 +13,25 @@ import org.codechimp.apprater.AppRater;
 
 public class MainActivity extends Activity {
 
-	private Button buttonTest;
+    private Button buttonTest;
 
-	@Override
-	protected void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
-		setContentView(R.layout.activity_main);
-
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
 
         buttonTest = (Button) findViewById(R.id.button1);
-		
-		buttonTest.setOnClickListener(new OnClickListener() {
-			public void onClick(View v) {
-				
-				// This forces display of the rate prompt.
-				// It should only be used for testing purposes
-				AppRater.showRateDialog(v.getContext());
-			}
-		});
-
-
-        // Optionally you can set the Market you want to use prior to calling app_launched
-        // If setMarket not called it will default to Google Play
-        // Current implementations are Google Play and Amazon App Store, you can add your own by implementing Market
-        // AppRater.setMarket(new GoogleMarket());
-        // AppRater.setMarket(new AmazonMarket());
-
-        // This will keep a track of when the app was first used and whether to show a prompt
-		// It should be the default implementation of AppRater
+        buttonTest.setOnClickListener(new OnClickListener() {
+            public void onClick(View v) {
+                // This forces display of the rate prompt.
+                // It should only be used for testing purposes
+                AppRater.showRateDialog(v.getContext());
+            }
+        });
 
         AppRater.setPackageName("com.johncrossley");
         AppRater.app_launched(this);
-	}
+    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
